@@ -1,15 +1,42 @@
-body {
-    margin: 0;
-    height: 100vh;
-
-    display: flex;
-    justify-content: center;
-    align-items: center;
-
-    background-color: #222;
+* {
+  box-sizing: border-box;
 }
 
-#game {
-    border: 3px solid white;
-    background-color: black;
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: #101810;
+  color: white;
+  font-family: Arial, sans-serif;
+}
+
+canvas {
+  display: block;
+  width: min(100%, 400px);
+  height: auto;
+  aspect-ratio: 1;
+  background: black;
+  border: 3px solid #78c850;
+  border-radius: 8px;
+  box-shadow: 0 0 24px rgb(120 200 80 / 25%);
+  touch-action: none;
+}
+
+@media (min-width: 600px) {
+  body {
+    padding: 24px;
+  }
+
+  canvas {
+    border-width: 4px;
+  }
 }
