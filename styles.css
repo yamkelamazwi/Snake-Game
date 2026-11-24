@@ -40,3 +40,14 @@ canvas {
     border-width: 4px;
   }
 }
+
+#game-author {
+  margin: 16px 0 0;
+  color: #d8e8d2;
+  font-size: clamp(0.9rem, 4vw, 1.1rem);
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-align: center;
+  opacity: 0.85;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
