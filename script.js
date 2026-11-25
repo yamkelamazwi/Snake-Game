@@ -12,6 +12,9 @@ const startingSpeed = 200;
 const speedUpPerPoint = 5;
 const fastestSpeed = 80;
 
+const goldenFoodLifespan = 5000;
+const goldenFoodRespawnDelay = 8000;
+
 const stageColors = [
   { board: "#101810", snake: "#78c850" },
   { board: "#10202b", snake: "#42d9ff" },
@@ -43,6 +46,9 @@ let level = 1;
 let growthPending = 0;
 let gameOver = false;
 let paused = false;
+let goldenFoodVisible = false;
+let goldenFoodTimeoutId = null;
+let goldenFoodRespawnTimeoutId = null;
 let swipeStartX = 0;
 let swipeStartY = 0;
 let highScore = Number(localStorage.getItem("highScore")) || 0;
@@ -59,19 +65,26 @@ function getGameSpeed() {
 }
 
 function isOccupied(position) {
-  const occupiedBySnake = snake.some(
+  const snakeOccupied = snake.some(
     segment => segment.x === position.x && segment.y === position.y
   );
 
-  const occupiedByObstacle = obstacles.some(
+  const obstacleOccupied = obstacles.some(
     obstacle => obstacle.x === position.x && obstacle.y === position.y
   );
 
-  const occupiedByFood = [food, goldenFood].some(
-    item => item.x === position.x && item.y === position.y
-  );
+  const foodOccupied =
+    food.x === position.x && food.y === position.y;
 
-  return occupiedBySnake || occupiedByObstacle || occupiedByFood;
+  const goldenFoodOccupied =
+    goldenFoodVisible &&
+    goldenFood.x === position.x &&
+    goldenFood.y === position.y;
+
+  return snakeOccupied ||
+    obstacleOccupied ||
+    foodOccupied ||
+    goldenFoodOccupied;
 }
 
 function getRandomEmptyPosition() {
@@ -95,8 +108,6 @@ function placeFood(item) {
 
 function createObstacles() {
   obstacles.length = 0;
-
-  // Level 1 has no obstacles. Each later level adds two.
   const obstacleCount = (level - 1) * obstaclesPerLevel;
 
   for (let i = 0; i < obstacleCount; i++) {
@@ -113,13 +124,37 @@ function updateStage() {
   if (newLevel !== level) {
     level = newLevel;
     document.getElementById("level").textContent = level;
-
     createObstacles();
   }
 
   const colors = stageColors[level - 1];
   canvas.style.backgroundColor = colors.board;
   canvas.style.borderColor = colors.snake;
+}
+
+function showGoldenFood() {
+  clearTimeout(goldenFoodTimeoutId);
+  clearTimeout(goldenFoodRespawnTimeoutId);
+
+  placeFood(goldenFood);
+  goldenFoodVisible = true;
+
+  goldenFoodTimeoutId = setTimeout(() => {
+    hideGoldenFood();
+  }, goldenFoodLifespan);
+}
+
+function hideGoldenFood() {
+  clearTimeout(goldenFoodTimeoutId);
+
+  goldenFoodVisible = false;
+  goldenFood.x = -1;
+  goldenFood.y = -1;
+
+  clearTimeout(goldenFoodRespawnTimeoutId);
+  goldenFoodRespawnTimeoutId = setTimeout(() => {
+    showGoldenFood();
+  }, goldenFoodRespawnDelay);
 }
 
 function drawSnake() {
@@ -144,17 +179,18 @@ function drawFood() {
     tileSize
   );
 
-  // Draw golden food as a gold circle.
-  ctx.fillStyle = "#ffd700";
-  ctx.beginPath();
-  ctx.arc(
-    goldenFood.x * tileSize + tileSize / 2,
-    goldenFood.y * tileSize + tileSize / 2,
-    tileSize / 2 - 2,
-    0,
-    Math.PI * 2
-  );
-  ctx.fill();
+  if (goldenFoodVisible) {
+    ctx.fillStyle = "#ffd700";
+    ctx.beginPath();
+    ctx.arc(
+      goldenFood.x * tileSize + tileSize / 2,
+      goldenFood.y * tileSize + tileSize / 2,
+      tileSize / 2 - 2,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+  }
 }
 
 function drawObstacles() {
@@ -178,7 +214,6 @@ function moveSnake() {
     y: head.y + dy
   };
 
-  // Wrap around the board edges.
   if (newHead.x >= tileCount) newHead.x = 0;
   if (newHead.x < 0) newHead.x = tileCount - 1;
   if (newHead.y >= tileCount) newHead.y = 0;
@@ -211,21 +246,24 @@ function checkFoodCollision() {
 
   if (head.x === food.x && head.y === food.y) {
     updateScore(1);
-    growthPending += 1;
+    growthPending++;
     placeFood(food);
   }
 
-  if (head.x === goldenFood.x && head.y === goldenFood.y) {
+  if (
+    goldenFoodVisible &&
+    head.x === goldenFood.x &&
+    head.y === goldenFood.y
+  ) {
     updateScore(3);
     growthPending += 2;
-    placeFood(goldenFood);
+    hideGoldenFood();
   }
 }
 
 function checkCollision() {
   const head = snake[0];
 
-  // Check whether the head hit another part of the snake.
   for (let i = 1; i < snake.length; i++) {
     if (head.x === snake[i].x && head.y === snake[i].y) {
       gameOver = true;
@@ -233,7 +271,6 @@ function checkCollision() {
     }
   }
 
-  // Check whether the head hit an obstacle.
   if (obstacles.some(
     obstacle => head.x === obstacle.x && head.y === obstacle.y
   )) {
@@ -260,26 +297,6 @@ function drawMessage(title, subtitle) {
   ctx.textAlign = "left";
 }
 
-function gameLoop() {
-  if (gameOver) {
-    drawMessage("GAME OVER", "Press R or tap the board to restart");
-  } else if (paused) {
-    drawMessage("PAUSED", "Press Space to continue");
-  } else {
-    clearBoard();
-
-    moveSnake();
-    checkFoodCollision();
-    checkCollision();
-
-    drawObstacles();
-    drawFood();
-    drawSnake();
-  }
-
-  setTimeout(gameLoop, getGameSpeed());
-}
-
 function resetGame() {
   gameOver = false;
   paused = false;
@@ -296,14 +313,46 @@ function resetGame() {
   document.getElementById("score").textContent = score;
   document.getElementById("level").textContent = level;
 
+  clearTimeout(goldenFoodTimeoutId);
+  clearTimeout(goldenFoodRespawnTimeoutId);
+
+  goldenFoodVisible = false;
+  goldenFood.x = -1;
+  goldenFood.y = -1;
+
   createObstacles();
   placeFood(food);
-  placeFood(goldenFood);
+  showGoldenFood();
   updateStage();
 }
 
+function gameLoop() {
+  if (gameOver) {
+    drawMessage(
+      "GAME OVER",
+      "Press R or tap the board to restart"
+    );
+  } else if (paused) {
+    drawMessage(
+      "PAUSED",
+      "Press Space to continue"
+    );
+  } else {
+    clearBoard();
+
+    moveSnake();
+    checkFoodCollision();
+    checkCollision();
+
+    drawObstacles();
+    drawFood();
+    drawSnake();
+  }
+
+  setTimeout(gameLoop, getGameSpeed());
+}
+
 function changeDirection(newDx, newDy) {
-  // Prevent an immediate 180-degree turn.
   if (newDx === -dx && newDy === -dy) {
     return;
   }
@@ -326,8 +375,12 @@ canvas.addEventListener("pointerup", event => {
 
   const differenceX = event.clientX - swipeStartX;
   const differenceY = event.clientY - swipeStartY;
+  const movement = Math.max(
+    Math.abs(differenceX),
+    Math.abs(differenceY)
+  );
 
-  if (Math.max(Math.abs(differenceX), Math.abs(differenceY)) < 20) {
+  if (movement < 20) {
     return;
   }
 
@@ -362,10 +415,9 @@ document.addEventListener("keydown", event => {
   }
 });
 
-// Set up the first stage and food.
 createObstacles();
 placeFood(food);
-placeFood(goldenFood);
+showGoldenFood();
 updateStage();
 
 gameLoop();
