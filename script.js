@@ -80,6 +80,8 @@ let score = 0;
 let growing = false;
 let paused = false;
 let highScore = 0;
+let touchStartX = 0;
+let touchStartY = 0;
 
 function resetGame() {
   gameOver = false;
@@ -181,6 +183,46 @@ function gameLoop() {
   drawSnake();
   drawScore();
 }
+
+canvas.addEventListener("touchend", (e) => {
+  const touchEndX = e.changedTouches[0].clientX;
+  const touchEndY = e.changedTouches[0].clientY;
+
+  const diffX = touchEndX - touchStartX;
+  const diffY = touchEndY - touchStartY;
+
+  if (Math.abs(diffX) > Math.abs(diffY)) {
+
+    // Horizontal swipe
+    if (diffX > 0 && dx !== -1) {
+      dx = 1;
+      dy = 0;
+    } else if (diffX < 0 && dx !== 1) {
+      dx = -1;
+      dy = 0;
+    }
+
+  } else {
+
+    // Vertical swipe
+    if (diffY > 0 && dy !== -1) {
+      dx = 0;
+      dy = 1;
+    } else if (diffY < 0 && dy !== 1) {
+      dx = 0;
+      dy = -1;
+    }
+
+  }
+});
+
+canvas.addEventListener(
+  "touchmove",
+  (e) => {
+    e.preventDefault();
+  },
+  { passive: false }
+);
 
 document.addEventListener("keydown", function(event) {
   console.log(event.key);
