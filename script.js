@@ -4,6 +4,10 @@ const ctx = canvas.getContext("2d");
 const tileSize = 20;
 const tileCount = canvas.width / tileSize;
 
+const startingSpeed = 200;
+const speedUpPerFood = 5;
+const fastestSpeed = 80;
+
 const snake = [
   { x: 10, y: 10 }
 ];
@@ -11,10 +15,28 @@ const snake = [
 let dx = 1;
 let dy = 0;
 
+let gameOver = false;
+let score = 0;
+let growing = false;
+let paused = false;
+let highScore = Number(localStorage.getItem("highScore")) || 0;
+let swipeStartX = 0;
+let swipeStartY = 0;
+
 const food = {
   x: Math.floor(Math.random() * tileCount),
   y: Math.floor(Math.random() * tileCount)
 };
+
+document.getElementById("score").textContent = score;
+document.getElementById("high-score").textContent = highScore;
+
+function getGameSpeed() {
+  return Math.max(
+    fastestSpeed,
+    startingSpeed - score * speedUpPerFood
+  );
+}
 
 function drawSnake() {
   ctx.fillStyle = "lime";
@@ -48,7 +70,6 @@ function moveSnake() {
     y: head.y + dy
   };
 
-  // Wrap horizontally
   if (newHead.x >= tileCount) {
     newHead.x = 0;
   }
@@ -57,7 +78,6 @@ function moveSnake() {
     newHead.x = tileCount - 1;
   }
 
-  // Wrap vertically
   if (newHead.y >= tileCount) {
     newHead.y = 0;
   }
@@ -75,39 +95,35 @@ function moveSnake() {
   growing = false;
 }
 
-let gameOver = false;
-let score = 0;
-let growing = false;
-let paused = false;
-let highScore = 0;
-let touchStartX = 0;
-let touchStartY = 0;
-
 function resetGame() {
   gameOver = false;
   paused = false;
-
   score = 0;
 
+  document.getElementById("score").textContent = score;
+
   snake.length = 1;
-  snake[0] = {x: 10, y: 10};
+  snake[0] = { x: 10, y: 10 };
 
   dx = 1;
   dy = 0;
 
   food.x = Math.floor(Math.random() * tileCount);
   food.y = Math.floor(Math.random() * tileCount);
-};
+}
 
 function checkFoodCollision() {
   if (snake[0].x === food.x && snake[0].y === food.y) {
     score++;
+    document.getElementById("score").textContent = score;
 
     if (score > highScore) {
       highScore = score;
-    };
-    growing = true;
+      localStorage.setItem("highScore", highScore);
+      document.getElementById("high-score").textContent = highScore;
+    }
 
+    growing = true;
 
     food.x = Math.floor(Math.random() * tileCount);
     food.y = Math.floor(Math.random() * tileCount);
@@ -116,7 +132,7 @@ function checkFoodCollision() {
   }
 }
 
-function checkSelfCollision() { 
+function checkSelfCollision() {
   const head = snake[0];
 
   for (let i = 1; i < snake.length; i++) {
@@ -124,19 +140,10 @@ function checkSelfCollision() {
       head.x === snake[i].x &&
       head.y === snake[i].y
     ) {
-      
       gameOver = true;
       return;
     }
   }
-}
-
-function drawScore() {
-  ctx.fillStyle = "white";
-  ctx.font = "20px Arial";
-
-  ctx.fillText(`Score: ${score}`, 10, 25);
-  ctx.fillText(`High Score: ${highScore}`, 10, 50);
 }
 
 function clearBoard() {
@@ -159,107 +166,88 @@ function gameLoop() {
 
     ctx.font = "20px Arial";
     ctx.fillText("Press R to restart", 70, 230);
-
-    return;
-  }
-
-  if (paused) {
+  } else if (paused) {
     clearBoard();
 
     ctx.fillStyle = "white";
     ctx.font = "40px Arial";
     ctx.fillText("PAUSED", 100, 200);
+  } else {
+    clearBoard();
 
+    moveSnake();
+    checkFoodCollision();
+    checkSelfCollision();
+
+    drawFood();
+    drawSnake();
+  }
+
+  setTimeout(gameLoop, getGameSpeed());
+}
+
+function changeDirection(newDx, newDy) {
+  if (newDx === -dx && newDy === -dy) {
     return;
   }
 
-  clearBoard();
-
-  moveSnake();
-  checkFoodCollision();
-  checkSelfCollision();
-
-  drawFood();
-  drawSnake();
-  drawScore();
+  dx = newDx;
+  dy = newDy;
 }
 
-canvas.addEventListener("touchend", (e) => {
-  const touchEndX = e.changedTouches[0].clientX;
-  const touchEndY = e.changedTouches[0].clientY;
-
-  const diffX = touchEndX - touchStartX;
-  const diffY = touchEndY - touchStartY;
-
-  if (Math.abs(diffX) > Math.abs(diffY)) {
-
-    // Horizontal swipe
-    if (diffX > 0 && dx !== -1) {
-      dx = 1;
-      dy = 0;
-    } else if (diffX < 0 && dx !== 1) {
-      dx = -1;
-      dy = 0;
-    }
-
-  } else {
-
-    // Vertical swipe
-    if (diffY > 0 && dy !== -1) {
-      dx = 0;
-      dy = 1;
-    } else if (diffY < 0 && dy !== 1) {
-      dx = 0;
-      dy = -1;
-    }
-
-  }
+canvas.addEventListener("pointerdown", (event) => {
+  swipeStartX = event.clientX;
+  swipeStartY = event.clientY;
+  canvas.setPointerCapture(event.pointerId);
 });
 
-canvas.addEventListener(
-  "touchmove",
-  (e) => {
-    e.preventDefault();
-  },
-  { passive: false }
-);
-
-document.addEventListener("keydown", function(event) {
-  console.log(event.key);
-    if (event.code === "Space") {
-    paused = !paused;
-    return;
-  }
-  if (event.key === "r") {
-  console.log("gameOver =", gameOver);
-}
-
-  if (event.key.toLowerCase() === "r" && gameOver) {
-    
+canvas.addEventListener("pointerup", (event) => {
+  if (gameOver) {
     resetGame();
     return;
   }
 
+  const differenceX = event.clientX - swipeStartX;
+  const differenceY = event.clientY - swipeStartY;
+  const movement = Math.max(
+    Math.abs(differenceX),
+    Math.abs(differenceY)
+  );
 
-  if (event.key === "ArrowUp" && dy === 0) {
-    dx = 0;
-    dy = -1;
+  if (movement < 20) {
+    return;
   }
 
-  if (event.key === "ArrowDown" && dy === 0) {
-    dx = 0;
-    dy = 1;
-  }
-
-  if (event.key === "ArrowLeft" && dx === 0) {
-    dx = -1;
-    dy = 0;
-  }
-
-  if (event.key === "ArrowRight" && dx === 0) {
-    dx = 1;
-    dy = 0;
+  if (Math.abs(differenceX) > Math.abs(differenceY)) {
+    changeDirection(differenceX > 0 ? 1 : -1, 0);
+  } else {
+    changeDirection(0, differenceY > 0 ? 1 : -1);
   }
 });
 
-setInterval(gameLoop, 200);
+document.addEventListener("keydown", (event) => {
+  const directions = {
+    ArrowUp: [0, -1],
+    ArrowDown: [0, 1],
+    ArrowLeft: [-1, 0],
+    ArrowRight: [1, 0]
+  };
+
+  if (directions[event.key]) {
+    event.preventDefault();
+    changeDirection(...directions[event.key]);
+    return;
+  }
+
+  if (event.code === "Space" && !gameOver) {
+    event.preventEvent = true;
+    event.preventDefault();
+    paused = !paused;
+  }
+
+  if (event.key.toLowerCase() === "r" && gameOver) {
+    resetGame();
+  }
+});
+
+gameLoop();
