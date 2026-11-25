@@ -16,6 +16,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 12px;
+  margin: 0;
   padding: 16px;
   overflow-x: hidden;
   background: #101810;
@@ -50,7 +51,6 @@ canvas {
   width: min(100%, 400px);
   height: auto;
   aspect-ratio: 1;
-  background: black;
   border: 3px solid #78c850;
   border-radius: 8px;
   box-shadow: 0 0 24px rgb(120 200 80 / 25%);
